@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNAKE | rishabh.exe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/3.5.0/remixicon.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        neo: {
+                            bg: '#f0f0f0',
+                            black: '#121212',
+                            white: '#ffffff',
+                            blue: '#3b82f6',
+                            red: '#ef4444',
+                            yellow: '#eab308',
+                            green: '#22c55e',
+                            purple: '#a855f7',
+                            pink: '#ec4899',
+                            orange: '#f97316',
+                        }
+                    },
+                    boxShadow: {
+                        hard: '4px 4px 0px 0px rgba(0,0,0,1)',
+                    },
+                    cursor: {
+                        hover: 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewport=\'0 0 100 100\' style=\'fill:black;font-size:24px;\'><text y=\'50%\'>👆</text></svg>") 16 0, auto',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Koulen&display=swap');
+
+        body {
+            font-family: 'Space Mono', monospace;
+            background-image: radial-gradient(#000 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .font-display {
+            font-family: 'Koulen', cursive;
+        }
+    </style>
+</head>
+
+<body class="bg-neo-bg min-h-screen flex flex-col items-center justify-center p-4" onkeydown="changeDirection(event)">
+
+    <div class="fixed top-4 left-4 z-50">
+        <a href="../index.html"
+            class="bg-white border-2 border-black px-4 py-2 font-bold shadow-hard hover:bg-neo-yellow transition-all flex items-center gap-2">
+            <i class="ri-arrow-left-line"></i> BACK_TO_ROOT
+        </a>
+    </div>
+
+    <div class="max-w-md w-full bg-white border-4 border-black p-8 shadow-hard relative">
+        <div
+            class="absolute -top-4 -right-4 bg-neo-pink text-black px-4 py-1 border-2 border-black font-bold transform -rotate-2">
+            GAME_002
+        </div>
+
+        <h1 class="text-4xl font-display font-black text-center mb-2">SNAKE.EXE</h1>
+        <div class="text-center font-mono text-sm text-gray-500 mb-8">CONSUME DATA PACKETS</div>
+
+        <div class="flex justify-between mb-4 font-bold text-sm">
+            <div class="bg-neo-pink text-white px-3 py-1 border-2 border-neo-black">SCORE: <span id="score">0</span>
+            </div>
+            <div class="text-xs self-center">USE ARROW KEYS</div>
+        </div>
+
+        <div class="relative border-4 border-black bg-black mx-auto" style="width: 300px; height: 300px;">
+            <canvas id="gameCanvas" width="300" height="300" class="block"></canvas>
+
+            <div id="startScreen"
+                class="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white z-10">
+                <div class="text-4xl font-bold mb-2 blink">PRESS ENTER</div>
+                <div class="text-xs text-neo-green font-mono">TO INITIALIZE</div>
+            </div>
+
+            <div id="gameOverScreen"
+                class="hidden absolute inset-0 flex flex-col items-center justify-center bg-red-900/90 text-white z-10">
+                <div class="text-4xl font-bold mb-2 text-white">SYSTEM FAIL</div>
+                <div class="text-sm font-mono mb-4">You crashed.</div>
+                <button onclick="resetGame()"
+                    class="bg-white text-black px-4 py-1 border-2 border-black font-bold hover:bg-neo-green transition-colors">REBOOT</button>
+            </div>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div class="grid grid-cols-3 gap-2 mt-4 md:hidden">
+            <div></div>
+            <button onclick="changeDirection({key: 'ArrowUp'})"
+                class="bg-gray-200 border-2 border-black p-4 active:bg-neo-pink"><i
+                    class="ri-arrow-up-line"></i></button>
+            <div></div>
+            <button onclick="changeDirection({key: 'ArrowLeft'})"
+                class="bg-gray-200 border-2 border-black p-4 active:bg-neo-pink"><i
+                    class="ri-arrow-left-line"></i></button>
+            <button onclick="changeDirection({key: 'ArrowDown'})"
+                class="bg-gray-200 border-2 border-black p-4 active:bg-neo-pink"><i
+                    class="ri-arrow-down-line"></i></button>
+            <button onclick="changeDirection({key: 'ArrowRight'})"
+                class="bg-gray-200 border-2 border-black p-4 active:bg-neo-pink"><i
+                    class="ri-arrow-right-line"></i></button>
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreEl = document.getElementById("score");
+        const startScreen = document.getElementById("startScreen");
+        const gameOverScreen = document.getElementById("gameOverScreen");
+
+        const scale = 15; // Size of grid blocks
+        const rows = canvas.height / scale;
+        const columns = canvas.width / scale;
+
+        let snake;
+        let fruit;
+        let gameInterval;
+        let score = 0;
+        let isGameRunning = false;
+
+        function Snake() {
+            this.x = 0;
+            this.y = 0;
+            this.xSpeed = scale * 1;
+            this.ySpeed = 0;
+            this.total = 0;
+            this.tail = [];
+
+            this.draw = function () {
+                ctx.fillStyle = "#ec4899"; // neo-pink
+                for (let i = 0; i < this.tail.length; i++) {
+                    ctx.fillRect(this.tail[i].x, this.tail[i].y, scale, scale);
+                    ctx.strokeStyle = "#000";
+                    ctx.strokeRect(this.tail[i].x, this.tail[i].y, scale, scale);
+                }
+
+                ctx.fillStyle = "#ec4899";
+                ctx.fillRect(this.x, this.y, scale, scale);
+                ctx.strokeStyle = "#fff";
+                ctx.strokeRect(this.x, this.y, scale, scale);
+            }
+
+            this.update = function () {
+                for (let i = 0; i < this.tail.length - 1; i++) {
+                    this.tail[i] = this.tail[i + 1];
+                }
+
+                if (this.total >= 1) {
+                    this.tail[this.total - 1] = { x: this.x, y: this.y };
+                }
+
+                this.x += this.xSpeed;
+                this.y += this.ySpeed;
+
+                if (this.x >= canvas.width) this.x = 0;
+                if (this.y >= canvas.height) this.y = 0;
+                if (this.x < 0) this.x = canvas.width - scale;
+                if (this.y < 0) this.y = canvas.height - scale;
+            }
+
+            this.changeDirection = function (direction) {
+                switch (direction) {
+                    case 'Up':
+                        if (this.ySpeed !== scale * 1) {
+                            this.xSpeed = 0;
+                            this.ySpeed = -scale * 1;
+                        }
+                        break;
+                    case 'Down':
+                        if (this.ySpeed !== -scale * 1) {
+                            this.xSpeed = 0;
+                            this.ySpeed = scale * 1;
+                        }
+                        break;
+                    case 'Left':
+                        if (this.xSpeed !== scale * 1) {
+                            this.xSpeed = -scale * 1;
+                            this.ySpeed = 0;
+                        }
+                        break;
+                    case 'Right':
+                        if (this.xSpeed !== -scale * 1) {
+                            this.xSpeed = scale * 1;
+                            this.ySpeed = 0;
+                        }
+                        break;
+                }
+            }
+
+            this.eat = function (fruit) {
+                if (this.x === fruit.x && this.y === fruit.y) {
+                    this.total++;
+                    return true;
+                }
+                return false;
+            }
+
+            this.checkCollision = function () {
+                for (let i = 0; i < this.tail.length; i++) {
+                    if (this.x === this.tail[i].x && this.y === this.tail[i].y) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        function Fruit() {
+            this.x;
+            this.y;
+
+            this.pickLocation = function () {
+                this.x = (Math.floor(Math.random() * columns)) * scale;
+                this.y = (Math.floor(Math.random() * rows)) * scale;
+            }
+
+            this.draw = function () {
+                ctx.fillStyle = "#22c55e"; // neo-green
+                ctx.fillRect(this.x, this.y, scale, scale);
+            }
+        }
+
+        function setup() {
+            snake = new Snake();
+            fruit = new Fruit();
+            fruit.pickLocation();
+
+            gameInterval = window.setInterval(() => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                fruit.draw();
+                snake.update();
+                snake.draw();
+
+                if (snake.eat(fruit)) {
+                    fruit.pickLocation();
+                    score++;
+                    scoreEl.innerText = score;
+                }
+
+                if (snake.checkCollision()) {
+                    gameOver();
+                }
+            }, 100);
+        }
+
+        function startGame() {
+            if (isGameRunning) return;
+            isGameRunning = true;
+            startScreen.classList.add("hidden");
+            gameState = "playing";
+            score = 0;
+            scoreEl.innerText = score;
+            setup();
+        }
+
+        function gameOver() {
+            clearInterval(gameInterval);
+            isGameRunning = false;
+            gameOverScreen.classList.remove("hidden");
+        }
+
+        function resetGame() {
+            gameOverScreen.classList.add("hidden");
+            isGameRunning = false; // Reset flag to allow start
+            startGame();
+        }
+
+        function changeDirection(event) {
+            const key = event.key.replace('Arrow', '');
+            if (!isGameRunning && (event.key === 'Enter')) {
+                startGame();
+            } else if (isGameRunning) {
+                snake.changeDirection(key);
+            }
+        }
+    </script>
+</body>
+
+</html>
